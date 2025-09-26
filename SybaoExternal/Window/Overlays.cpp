@@ -25,7 +25,7 @@ void CleanupRenderTarget(DX11Objects* dx) {
 }
 
 struct EnumData {
-    const char* exeName;
+    std::string exeName;
     HWND resultHwnd;
 };
 
@@ -60,7 +60,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     return TRUE; // continue enumeration
 }
 
-HWND FindTarget(const char* exeName) {
+HWND FindTarget(std::string exeName) {
     EnumData data;
     data.exeName = exeName;
     data.resultHwnd = nullptr;
@@ -105,6 +105,40 @@ void SetupDepthStencilFalse(ID3D11Device* pDevice)
     pDevice->CreateDepthStencilState(&desc, &DepthStencilState_FALSE);
 }
 
+void Overlays::Theme( ) {
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* colors = style.Colors;
+
+    // Set a minimal Japanese-inspired color palette
+    colors[ImGuiCol_WindowBg] = ImVec4(0.95f, 0.95f, 0.94f, 1.00f); // Almost white
+    colors[ImGuiCol_Border] = ImVec4(0.60f, 0.60f, 0.60f, 0.50f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.80f, 0.10f, 0.10f, 0.65f); // red hover
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.80f, 0.10f, 0.10f, 1.00f); // red active
+    colors[ImGuiCol_TitleBg] = ImVec4(0.90f, 0.10f, 0.10f, 0.90f); // strong red
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.90f, 0.10f, 0.10f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.90f, 0.10f, 0.10f, 0.85f); // buttons red
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.75f, 0.10f, 0.10f, 0.85f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.60f, 0.10f, 0.10f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.90f, 0.10f, 0.10f, 0.45f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.90f, 0.10f, 0.10f, 0.65f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.90f, 0.10f, 0.10f, 0.85f);
+    colors[ImGuiCol_Text] = ImVec4(0.10f, 0.10f, 0.10f, 1.00f); // dark text
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.90f, 0.10f, 0.10f, 1.00f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.90f, 0.10f, 0.10f, 0.80f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.90f, 0.10f, 0.10f, 1.00f);
+
+    // Rounded corners and padding
+    style.WindowRounding = 6.0f;
+    style.FrameRounding = 4.0f;
+    style.ScrollbarRounding = 6.0f;
+    style.GrabRounding = 4.0f;
+    style.FramePadding = ImVec2(6, 4);
+    style.ItemSpacing = ImVec2(8, 6);
+}
+
 //Initialize ImGui Menu
 void Overlays::Init( ) {
 
@@ -116,6 +150,8 @@ void Overlays::Init( ) {
         if (ImGui::Button("Exit"))
             PostQuitMessage(0);
 
+        if (ImGui::Checkbox("Stream Proof Overlay", &Menu::StreamProof))
+
         ImGui::End();
     }
 }
@@ -123,7 +159,11 @@ void Overlays::Init( ) {
 //Render ImGui
 void Overlays::Render( ) {
 
-	HWND hwnd = FindTarget("cs2.exe");
+    Windows::hwnd = FindTarget(Target::processNameRender);
+    if (!Windows::hwnd) {
+		cerr << "Target window not found!" << endl;
+        return;
+	}
 
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L,
         GetModuleHandle(NULL), NULL, NULL, NULL, NULL,
@@ -131,11 +171,11 @@ void Overlays::Render( ) {
     RegisterClassEx(&wc);
 
     RECT target_rect;
-    GetClientRect(hwnd, &target_rect);
+    GetClientRect(Windows::hwnd, &target_rect);
     int width = target_rect.right - target_rect.left;
     int height = target_rect.bottom - target_rect.top;
 
-    HWND overlay_hwnd = CreateWindowEx(
+    Windows::overlay_hwnd = CreateWindowEx(
         WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_NOACTIVATE,
         wc.lpszClassName,
         L"Overlay",
@@ -144,9 +184,9 @@ void Overlays::Render( ) {
         NULL, NULL, wc.hInstance, NULL
     );
 
-    UpdateOverlayPosition(overlay_hwnd, hwnd);
+    UpdateOverlayPosition(Windows::overlay_hwnd, Windows::hwnd);
 
-    SetLayeredWindowAttributes(overlay_hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+    SetLayeredWindowAttributes(Windows::overlay_hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
 
     D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0 };
     DXGI_SWAP_CHAIN_DESC sd = {};
@@ -158,7 +198,7 @@ void Overlays::Render( ) {
     sd.BufferDesc.RefreshRate.Denominator = 1;
     sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = overlay_hwnd;
+    sd.OutputWindow = Windows::overlay_hwnd;
     sd.SampleDesc.Count = 1;
     sd.SampleDesc.Quality = 0;
     sd.Windowed = TRUE;
@@ -169,18 +209,19 @@ void Overlays::Render( ) {
     D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &dx->swap_chain, &dx->device, &createdFeatureLevel, &dx->device_context);
     CreateRenderTarget(dx);
 
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)dx);
+    SetWindowLongPtr(Windows::hwnd, GWLP_USERDATA, (LONG_PTR)dx);
 
-    ShowWindow(overlay_hwnd, SW_SHOW);
-    UpdateWindow(overlay_hwnd);
+    ShowWindow(Windows::overlay_hwnd, SW_SHOW);
+    UpdateWindow(Windows::overlay_hwnd);
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr; // Disable imgui.ini
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
+    Theme();
 
-    ImGui_ImplWin32_Init(overlay_hwnd);
+    ImGui_ImplWin32_Init(Windows::overlay_hwnd);
     ImGui_ImplDX11_Init(dx->device, dx->device_context);
 
     io.Fonts->Build();
@@ -193,7 +234,7 @@ void Overlays::Render( ) {
     while (msg.message != WM_QUIT)
     {
 
-        if (!IsWindow(hwnd)) {
+        if (!IsWindow(Windows::hwnd)) {
             MessageBoxA(NULL, "CS2 has been closed!", "Info", MB_ICONINFORMATION);
             break;
         }
@@ -205,7 +246,7 @@ void Overlays::Render( ) {
             continue;
         }
 
-        UpdateOverlayPosition(overlay_hwnd, hwnd);
+        UpdateOverlayPosition(Windows::overlay_hwnd, Windows::hwnd);
 
         if (GetAsyncKeyState(VK_INSERT) & 1) {
             Menu::showMenu = !Menu::showMenu;
@@ -236,7 +277,7 @@ void Overlays::Render( ) {
     if (dx->device) dx->device->Release();
     delete dx;
 
-    DestroyWindow(overlay_hwnd);
+    DestroyWindow(Windows::overlay_hwnd);
     UnregisterClass(wc.lpszClassName, wc.hInstance);
 }
 

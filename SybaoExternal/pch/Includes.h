@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <locale>
 #include <Psapi.h>
+#include <codecvt>
 
 #include <d3d11.h>
 

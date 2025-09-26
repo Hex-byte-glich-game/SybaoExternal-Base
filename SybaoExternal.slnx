@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="SybaoExternal/SybaoExternal.vcxproj" />
+  <Project Path="SybaoExternal/SybaoExternal.vcxproj" Id="dad00bb4-8769-4e67-af0a-466178a261a0" />
 </Solution>
